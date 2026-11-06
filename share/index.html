@@ -19,7 +19,11 @@ header{display:flex;align-items:center;justify-content:space-between;padding:16p
 .hero h1{font-size:24px;line-height:1.18;margin:0 0 12px}.hero p{opacity:.87;margin:0;font-size:14px;white-space:pre-wrap}
 #status{font-size:13px;padding:14px 3px;color:#dbebd8}
 .card{overflow:hidden;background:#fff;color:#1b2c20;border-radius:19px;margin:14px 0;box-shadow:0 8px 25px #06180c70}
-.media{width:100%;height:260px;background:linear-gradient(140deg,#d7e4d2,#afc4a9);display:grid;place-items:center;font-size:38px}
+.media{width:100%;height:260px;background:linear-gradient(140deg,#d7e4d2,#afc4a9);display:grid;place-items:center;font-size:38px;position:relative;overflow:hidden}
+.photoNav{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;min-height:44px;border:0;border-radius:50%;background:#10241bbf;color:#fff;font-size:25px;padding:0;z-index:2}
+.photoNav.prev{left:12px}.photoNav.next{right:12px}
+.photoIndex{position:absolute;bottom:12px;right:12px;padding:5px 10px;background:#10241bc9;color:#fff;border-radius:999px;font:600 12px system-ui;z-index:2}
+.noPhoto{font:500 14px system-ui;color:#385440;text-align:center;padding:16px}
 .media img{width:100%;height:100%;object-fit:cover}
 .content{padding:17px}.content h2{margin:0 0 6px;font-size:20px;line-height:1.2}
 .location{font-size:13px;color:#667264}.price{font-size:23px;font-weight:800;margin:8px 0}
@@ -72,6 +76,8 @@ const p=new URLSearchParams(location.search),token=p.get('t')||'',demo=p.get('de
 const lang=['ru','en','es'].includes(p.get('lang'))?p.get('lang'):'es';
 const L={
 ru:{load:'Загружаем вашу подборку…',missing:'Ссылка недоступна или истекла.',demo:'ДЕМО',guest:'Гостевой просмотр · без регистрации',
+    noPhoto:'Фото недоступно',demoTitle:'NIDO Pro · Демонстрационная подборка',
+    demoIntro:'Примеры объявлений из каталога NIDO с фотографиями. В деморежиме заявки и оценки не отправляются.',
     like:'Нравится',dislike:'Не подходит',view:'Хочу посмотреть',reason:'Почему брокер рекомендует',
     bedrooms:'спален',bathrooms:'ванных',area:'м²',send:'Отправить запрос',cancel:'Отмена',
     request:'Запросить просмотр',hint:'Ваш брокер получит заявку по этой подборке. Подтверждение времени он согласует лично.',
@@ -82,6 +88,8 @@ ru:{load:'Загружаем вашу подборку…',missing:'Ссылка
     demoSent:'Это демонстрация интерфейса: заявка не отправлялась.',
     footer:'NIDO не требует регистрации. Если ссылка переслана, укажите контакт для ответа. Открытие ссылки не подтверждает личность посетителя.'},
 es:{load:'Cargando selección…',missing:'El enlace no está disponible o ha expirado.',demo:'DEMO',guest:'Vista de invitado · sin registro',
+    noPhoto:'Foto no disponible',demoTitle:'NIDO Pro · Selección de demostración',
+    demoIntro:'Ejemplos del catálogo NIDO con fotos. No se envían opiniones ni solicitudes en la demo.',
     like:'Me gusta',dislike:'No encaja',view:'Quiero visitarla',reason:'Por qué la recomienda tu agente',
     bedrooms:'hab.',bathrooms:'baños',area:'m²',send:'Enviar solicitud',cancel:'Cancelar',
     request:'Solicitar visita',hint:'Tu agente recibirá la solicitud. El horario se confirmará directamente contigo.',
@@ -92,6 +100,8 @@ es:{load:'Cargando selección…',missing:'El enlace no está disponible o ha ex
     demoSent:'Esta es una demostración: no se ha enviado ninguna solicitud.',
     footer:'NIDO no requiere registro. Si te reenviaron el enlace, deja un contacto para que el agente responda. La identidad no se verifica por el enlace.'},
 en:{load:'Loading your selection…',missing:'This link is unavailable or expired.',demo:'DEMO',guest:'Guest view · no sign-up',
+    noPhoto:'Photo unavailable',demoTitle:'NIDO Pro · Demo selection',
+    demoIntro:'Examples from the NIDO catalog with photos. Demo reactions and requests are not sent.',
     like:'Like',dislike:'Not for me',view:'Request showing',reason:'Why your agent recommends it',
     bedrooms:'beds',bathrooms:'baths',area:'m²',send:'Send request',cancel:'Cancel',
     request:'Request a showing',hint:'Your agent receives a request. The showing time needs their confirmation.',
@@ -131,9 +141,51 @@ el('sendRequest').addEventListener('click',async()=>{
 });
 function showProperty(x,reasons){
  const article=make('article',undefined,'card'),media=make('div',undefined,'media');
- let imageReady=false;
- if(Array.isArray(x.photos)){for(const raw of x.photos.slice(0,1)){try{const u=new URL(raw);if(u.protocol==='https:'){const img=make('img');img.loading='lazy';img.alt=x.title||'';img.src=u.href;media.append(img);imageReady=true;}}catch{}}}
- if(!imageReady)media.append(make('span','⌂'));
+ // Listing galleries use only the photos attached to THIS public listing.
+ // No stock-photo substitution: stale/broken images receive a truthful fallback.
+ const photoUrls=(Array.isArray(x.photos)?x.photos:[]).slice(0,10).flatMap(raw=>{
+   if(typeof raw!=='string')return [];
+   try{const url=new URL(raw);return url.protocol==='https:'?[url.href]:[]}catch{return []}
+ });
+ if(!photoUrls.length){
+   media.append(make('span',L.noPhoto,'noPhoto'));
+ }else{
+   const img=make('img');
+   img.loading='lazy';img.decoding='async';img.alt=x.title||L.noPhoto;
+   const indicator=make('span',undefined,'photoIndex');
+   let current=0,failures=0;
+   const controls=[];
+   const renderPhoto=()=>{indicator.textContent=(current+1)+' / '+photoUrls.length;img.src=photoUrls[current];};
+   const choose=(delta)=>{failures=0;current=(current+delta+photoUrls.length)%photoUrls.length;renderPhoto();};
+   img.addEventListener('error',()=>{
+     failures++;
+     if(failures>=photoUrls.length){
+       img.remove();indicator.remove();for(const node of controls)node.remove();
+       media.append(make('span',L.noPhoto,'noPhoto'));return;
+     }
+     current=(current+1)%photoUrls.length;renderPhoto();
+   });
+   media.append(img);
+   if(photoUrls.length>1){
+     const left=make('button','‹','photoNav prev'),right=make('button','›','photoNav next');
+     left.type=right.type='button';
+     left.setAttribute('aria-label','Previous photo');
+     right.setAttribute('aria-label','Next photo');
+     left.addEventListener('click',()=>choose(-1));
+     right.addEventListener('click',()=>choose(1));
+     controls.push(left,right);media.append(left,right,indicator);
+     let startX=0,startY=0;
+     media.addEventListener('touchstart',e=>{
+       if(e.touches.length===1){startX=e.touches[0].clientX;startY=e.touches[0].clientY}
+     },{passive:true});
+     media.addEventListener('touchend',e=>{
+       if(!e.changedTouches.length)return;
+       const dx=e.changedTouches[0].clientX-startX,dy=e.changedTouches[0].clientY-startY;
+       if(Math.abs(dx)>55&&Math.abs(dx)>Math.abs(dy)*1.5)choose(dx<0?1:-1);
+     },{passive:true});
+   }
+   renderPhoto();
+ }
  const body=make('div',undefined,'content'),head=make('h2',x.title),loc=make('div',[(x.city||''),(x.location||'')].filter(Boolean).join(' · '),'location');
  const price=make('div','$'+Number(x.price||0).toLocaleString('en-US'),'price');
  const facts=make('div',undefined,'facts');
@@ -156,9 +208,11 @@ function showProperty(x,reasons){
 (async()=>{try{
  const r=await fetch(NIDO_API+'?api=data&'+(demo?'demo=1':'t='+encodeURIComponent(token)),{cache:'no-store'});
  if(!r.ok)throw Error('bad');
- const data=await r.json();el('heading').textContent=data.title||'NIDO Pro';document.title='NIDO Pro · '+(data.title||'Selección');
- el('intro').textContent=data.intro||L.guest;
- for(const x of data.properties||[])showProperty(x,data.property_reasons||{});
+ const data=await r.json();
+ el('heading').textContent=demo?L.demoTitle:(data.title||'NIDO Pro');
+ document.title='NIDO Pro · '+(demo?L.demoTitle:(data.title||'Selección'));
+ el('intro').textContent=demo?L.demoIntro:(data.intro||L.guest);
+ for(const x of data.properties||[])showProperty(x,demo?{}:(data.property_reasons||{}));
  el('status').textContent=(data.properties||[]).length?'':L.missing;
 }catch{el('status').textContent=L.missing}})();
 </script></body></html>
