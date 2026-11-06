@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="es"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer"><meta name="robots" content="noindex,nofollow,noarchive">
+<meta name="theme-color" content="#14291e">
+<meta property="og:type" content="website">
+<meta property="og:title" content="NIDO Pro · Tu selección de inmuebles">
+<meta property="og:description" content="Explora y compara una selección personalizada de propiedades sin registrarte">
+<meta property="og:image" content="">
+<title>NIDO Pro · Tu selección de inmuebles</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; form-action 'none'; img-src https: data:; connect-src https://mwqahwtdvmlwfgsychtg.supabase.co; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<style>
+*{box-sizing:border-box}body{margin:0;background:#10241b;color:#f7f7f2;font:15px/1.4 system-ui,-apple-system,sans-serif}
+main{max-width:640px;margin:auto;padding:0 12px 44px}
+header{display:flex;align-items:center;justify-content:space-between;padding:16px 6px}
+.logo{font:700 29px Georgia,serif;letter-spacing:1px}.logo small{display:block;font:10px system-ui;letter-spacing:3px;opacity:.8}
+.headerAction{font-size:13px;opacity:.8}
+.hero{padding:24px 20px;border-radius:20px;background:linear-gradient(130deg,#284b37,#16412b)}
+.hero h1{font-size:24px;line-height:1.18;margin:0 0 12px}.hero p{opacity:.87;margin:0;font-size:14px;white-space:pre-wrap}
+#status{font-size:13px;padding:14px 3px;color:#dbebd8}
+.card{overflow:hidden;background:#fff;color:#1b2c20;border-radius:19px;margin:14px 0;box-shadow:0 8px 25px #06180c70}
+.media{width:100%;height:260px;background:linear-gradient(140deg,#d7e4d2,#afc4a9);display:grid;place-items:center;font-size:38px}
+.media img{width:100%;height:100%;object-fit:cover}
+.content{padding:17px}.content h2{margin:0 0 6px;font-size:20px;line-height:1.2}
+.location{font-size:13px;color:#667264}.price{font-size:23px;font-weight:800;margin:8px 0}
+.facts{display:flex;gap:11px;flex-wrap:wrap;font-size:13px;color:#556957}
+.reason{padding:12px;border-radius:12px;background:#eef3ec;margin:13px 0;font-size:14px}
+.actions{display:flex;gap:9px;margin:14px 0 0}.actions button{flex:1}
+button{appearance:none;cursor:pointer;min-height:46px;border:1px solid #ccd8cb;border-radius:12px;
+background:#f8faf7;color:#1c4024;font:600 14px system-ui;padding:8px}
+button.strong{background:#547d51;color:#fff;border-color:#547d51}
+button:disabled{opacity:.5;cursor:default}
+button:focus-visible{outline:3px solid #f4bd73}
+.note{font-size:12px;color:#cadac9;padding:14px 5px}
+dialog{border:0;border-radius:20px;padding:0;max-width:min(95vw,440px);width:100%;box-shadow:0 10px 45px #0009}
+dialog::backdrop{background:#06120dcc}
+.modal{padding:22px;color:#26352a}.modal h2{margin-top:0;font-size:22px}
+.modal label{display:block;margin:13px 0 5px;font-weight:600;font-size:13px}
+.modal input{width:100%;padding:12px;border-radius:10px;border:1px solid #b2c2b0;font:inherit}
+.check{display:flex;align-items:center;gap:10px;font-size:13px;margin:12px 0}.check input{width:auto}
+#modalPhone{display:none}
+.modalActions{display:flex;gap:8px;margin-top:16px}.modalActions button{flex:1}
+.small{font-size:12px;color:#667365}
+#banner{padding:10px 12px;border-radius:10px;background:#e4f0df;color:#203c24;font-size:13px;display:none}
+#banner.error{background:#f6dddd;color:#763535}
+@media(min-width:700px){main{max-width:760px}#list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.card{margin:0}.media{height:215px}}
+</style></head><body><main>
+<header><div class="logo">NIDO<small>REAL ESTATE · PRO</small></div><div class="headerAction">GUEST VIEW · <span id="demoTag"></span></div></header>
+<div class="hero"><h1 id="heading">Tu selección</h1><p id="intro"></p></div>
+<p id="status" role="status"></p>
+<div id="banner" role="status" aria-live="polite"></div>
+<div id="list"></div>
+<div class="note" id="footer"></div>
+</main>
+<dialog id="requestDialog"><div class="modal">
+<h2 id="modalTitle"></h2>
+<p id="modalHint" class="small"></p>
+<label for="preferred" id="timeLabel"></label>
+<input id="preferred" maxlength="140" autocomplete="off">
+<div class="check"><input id="forwarded" type="checkbox"><label for="forwarded" id="forwardedLabel"></label></div>
+<div id="modalPhone">
+<label for="guestName" id="guestNameLabel"></label><input id="guestName" maxlength="80" autocomplete="name">
+<label for="guestWhatsapp" id="phoneLabel"></label><input id="guestWhatsapp" inputmode="tel" maxlength="22" autocomplete="tel">
+</div>
+<div class="modalActions"><button type="button" id="cancel"></button><button type="button" class="strong" id="sendRequest"></button></div>
+</div></dialog>
+<script>
+'use strict';
+const NIDO_API='https://mwqahwtdvmlwfgsychtg.supabase.co/functions/v1/nido-pro-guest';
+const p=new URLSearchParams(location.search),token=p.get('t')||'',demo=p.get('demo')==='1';
+const lang=['ru','en','es'].includes(p.get('lang'))?p.get('lang'):'es';
+const L={
+ru:{load:'Загружаем вашу подборку…',missing:'Ссылка недоступна или истекла.',demo:'ДЕМО',guest:'Гостевой просмотр · без регистрации',
+    like:'Нравится',dislike:'Не подходит',view:'Хочу посмотреть',reason:'Почему брокер рекомендует',
+    bedrooms:'спален',bathrooms:'ванных',area:'м²',send:'Отправить запрос',cancel:'Отмена',
+    request:'Запросить просмотр',hint:'Ваш брокер получит заявку по этой подборке. Подтверждение времени он согласует лично.',
+    time:'Когда удобно? (необязательно)',timeHint:'Например: в субботу после 15:00',
+    forwarded:'Мне переслали эту ссылку (я не исходный получатель)',
+    name:'Ваше имя (необязательно)',phone:'Ваш WhatsApp для ответа, с кодом страны',
+    sent:'Запрос отправлен! Брокер увидит выбранный объект.',liked:'Отметка сохранена.',error:'Не удалось отправить. Попробуйте снова.',
+    demoSent:'Это демонстрация интерфейса: заявка не отправлялась.',
+    footer:'NIDO не требует регистрации. Если ссылка переслана, укажите контакт для ответа. Открытие ссылки не подтверждает личность посетителя.'},
+es:{load:'Cargando selección…',missing:'El enlace no está disponible o ha expirado.',demo:'DEMO',guest:'Vista de invitado · sin registro',
+    like:'Me gusta',dislike:'No encaja',view:'Quiero visitarla',reason:'Por qué la recomienda tu agente',
+    bedrooms:'hab.',bathrooms:'baños',area:'m²',send:'Enviar solicitud',cancel:'Cancelar',
+    request:'Solicitar visita',hint:'Tu agente recibirá la solicitud. El horario se confirmará directamente contigo.',
+    time:'¿Cuándo te conviene? (opcional)',timeHint:'Ej.: sábado después de las 15:00',
+    forwarded:'Me reenviaron este enlace (no soy el destinatario original)',
+    name:'Tu nombre (opcional)',phone:'Tu WhatsApp con código de país',
+    sent:'¡Solicitud enviada! Tu agente verá la propiedad.',liked:'Preferencia guardada.',error:'No se pudo enviar. Inténtalo de nuevo.',
+    demoSent:'Esta es una demostración: no se ha enviado ninguna solicitud.',
+    footer:'NIDO no requiere registro. Si te reenviaron el enlace, deja un contacto para que el agente responda. La identidad no se verifica por el enlace.'},
+en:{load:'Loading your selection…',missing:'This link is unavailable or expired.',demo:'DEMO',guest:'Guest view · no sign-up',
+    like:'Like',dislike:'Not for me',view:'Request showing',reason:'Why your agent recommends it',
+    bedrooms:'beds',bathrooms:'baths',area:'m²',send:'Send request',cancel:'Cancel',
+    request:'Request a showing',hint:'Your agent receives a request. The showing time needs their confirmation.',
+    time:'Preferred time (optional)',timeHint:'e.g. Saturday after 3 pm',
+    forwarded:'This link was forwarded to me (not the original recipient)',
+    name:'Your name (optional)',phone:'Your WhatsApp with country code',
+    sent:'Request sent! Your agent can see the listing.',liked:'Preference saved.',error:'Could not send. Try again.',
+    demoSent:'This is a demo. No real request was sent.',
+    footer:'No NIDO account required. If forwarded, provide contact details for a reply. A link is not proof of identity.'}
+}[lang];
+const el=id=>document.getElementById(id),make=(tag,txt,css)=>{const n=document.createElement(tag);if(txt!==undefined)n.textContent=String(txt);if(css)n.className=css;return n;};
+document.documentElement.lang=lang;
+el('status').textContent=L.load;el('footer').textContent=L.footer;el('demoTag').textContent=demo?L.demo:L.guest;
+el('modalTitle').textContent=L.request;el('modalHint').textContent=L.hint;
+el('timeLabel').textContent=L.time;el('preferred').placeholder=L.timeHint;el('forwardedLabel').textContent=L.forwarded;
+el('guestNameLabel').textContent=L.name;el('phoneLabel').textContent=L.phone;
+el('cancel').textContent=L.cancel;el('sendRequest').textContent=L.send;
+el('forwarded').addEventListener('change',()=>{el('modalPhone').style.display=el('forwarded').checked?'block':'none';});
+el('cancel').addEventListener('click',()=>el('requestDialog').close());
+let selectedId=null;
+function banner(text,err){el('banner').textContent=text;el('banner').className=err?'error':'';el('banner').style.display='block';}
+async function post(action,id,extra){
+ if(demo){banner(L.demoSent);return}
+ const r=await fetch(NIDO_API+'?api=event',{method:'POST',headers:{'content-type':'application/json'},
+  body:JSON.stringify(Object.assign({token:token,action:action,property_id:id},extra||{}))});
+ if(!r.ok)throw Error('request_failed');
+}
+el('sendRequest').addEventListener('click',async()=>{
+ if(!selectedId)return;
+ const forwarded=el('forwarded').checked,whatsapp=el('guestWhatsapp').value.replace(/\D/g,'');
+ if(forwarded&&!/^[0-9]{8,15}$/.test(whatsapp)){banner(L.phone,true);return}
+ const b=el('sendRequest');b.disabled=true;
+ try{await post('viewing',selectedId,{preferred_time:el('preferred').value,forwarded,
+  guest_name:forwarded?el('guestName').value:'',guest_whatsapp:forwarded?whatsapp:''});
+  el('requestDialog').close();banner(demo?L.demoSent:L.sent);
+ }catch{banner(L.error,true)}finally{b.disabled=false}
+});
+function showProperty(x,reasons){
+ const article=make('article',undefined,'card'),media=make('div',undefined,'media');
+ let imageReady=false;
+ if(Array.isArray(x.photos)){for(const raw of x.photos.slice(0,1)){try{const u=new URL(raw);if(u.protocol==='https:'){const img=make('img');img.loading='lazy';img.alt=x.title||'';img.src=u.href;media.append(img);imageReady=true;}}catch{}}}
+ if(!imageReady)media.append(make('span','⌂'));
+ const body=make('div',undefined,'content'),head=make('h2',x.title),loc=make('div',[(x.city||''),(x.location||'')].filter(Boolean).join(' · '),'location');
+ const price=make('div','$'+Number(x.price||0).toLocaleString('en-US'),'price');
+ const facts=make('div',undefined,'facts');
+ for(const text of [String(x.bedrooms||0)+' '+L.bedrooms,String(x.bathrooms||0)+' '+L.bathrooms,
+  String(x.area||0)+' '+L.area])facts.append(make('span',text));
+ body.append(head,loc,price,facts);
+ const reason=reasons[String(x.id)];
+ if(reason)body.append(make('div',L.reason+': '+reason,'reason'));
+ const actions=make('div',undefined,'actions');
+ const dislike=make('button','👎 '+L.dislike),like=make('button','👍 '+L.like),request=make('button',L.view,'strong');
+ dislike.addEventListener('click',async()=>{try{await post('disliked',x.id);banner(demo?L.demoSent:L.liked)}
+  catch{banner(L.error,true)}});
+ like.addEventListener('click',async()=>{try{await post('liked',x.id);banner(demo?L.demoSent:L.liked)}
+  catch{banner(L.error,true)}});
+ request.addEventListener('click',()=>{selectedId=x.id;el('preferred').value='';el('forwarded').checked=false;
+  el('modalPhone').style.display='none';el('requestDialog').showModal();});
+ actions.append(dislike,like);body.append(actions,request);request.style.width='100%';request.style.marginTop='9px';
+ article.append(media,body);el('list').append(article);
+}
+(async()=>{try{
+ const r=await fetch(NIDO_API+'?api=data&'+(demo?'demo=1':'t='+encodeURIComponent(token)),{cache:'no-store'});
+ if(!r.ok)throw Error('bad');
+ const data=await r.json();el('heading').textContent=data.title||'NIDO Pro';document.title='NIDO Pro · '+(data.title||'Selección');
+ el('intro').textContent=data.intro||L.guest;
+ for(const x of data.properties||[])showProperty(x,data.property_reasons||{});
+ el('status').textContent=(data.properties||[]).length?'':L.missing;
+}catch{el('status').textContent=L.missing}})();
+</script></body></html>
