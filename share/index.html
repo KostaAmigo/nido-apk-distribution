@@ -154,6 +154,7 @@ ru:{
  noPhoto:'Фотографии недоступны',beds:'спален',baths:'ванных',area:'м²',
  map:'Карта объектов',mapBtn:'Показать все точки на карте',mapClose:'Скрыть карту',
  noMap:'У выбранных объявлений нет разрешённых публичных геопозиций. Придумывать точки нельзя.',
+ mapOff:'Брокер отключил карту для этой подборки. Описание и фотографии доступны без карты.',
  someMap:'На карте доступны точки только тех объектов, владельцы которых разрешили показывать координаты.',
  mapFail:'Не удалось открыть карту. Попробуй позже.',
  basket:'Выбрано объектов:',planBtn:'Запросить просмотры',planTitle:'Гибкий план просмотров',
@@ -187,6 +188,7 @@ es:{
  noPhoto:'Foto no disponible',beds:'hab.',baths:'baños',area:'m²',
  map:'Mapa de las propiedades',mapBtn:'Ver todas en el mapa',mapClose:'Ocultar mapa',
  noMap:'Estas propiedades no tienen ubicaciones públicas autorizadas. No inventamos puntos.',
+ mapOff:'Tu agente no incluyó un mapa en esta selección. Puedes ver todas las fotos y descripciones.',
  someMap:'Solo se muestran puntos autorizados para publicar por el propietario.',
  mapFail:'No pudimos cargar el mapa. Vuelve a intentarlo.',
  basket:'Inmuebles elegidos:',planBtn:'Solicitar visitas',planTitle:'Plan flexible de visitas',
@@ -220,6 +222,7 @@ en:{
  noPhoto:'Photo unavailable',beds:'beds',baths:'baths',area:'m²',
  map:'Property map',mapBtn:'Show all pins on map',mapClose:'Hide map',
  noMap:'These listings have no authorized public map positions. We will not invent pins.',
+ mapOff:'Your agent did not include a map in this selection. Photos and descriptions remain available.',
  someMap:'Only coordinates approved for public display are shown.',
  mapFail:'Could not open the map. Please retry.',
  basket:'Selected:',planBtn:'Request viewings',planTitle:'Flexible viewing plan',
@@ -254,6 +257,7 @@ el('dayLabel').textContent=L.day;el('windowLabel').textContent=L.window;
 el('planNoteLabel').textContent=L.planNote;el('planNote').placeholder=L.planNoteHint;
 el('forwardedLabel').textContent=L.forwarded;el('guestNameLabel').textContent=L.name;
 el('phoneLabel').textContent=L.whatsapp;el('cancel').textContent=L.cancel;el('sendPlan').textContent=L.send;
+el('openPlan').textContent=L.planBtn;
 for(const option of el('window').options)option.textContent=L[option.value];
 el('cancel').addEventListener('click',()=>el('planDialog').close());
 el('forwarded').addEventListener('change',()=>{el('optionalContact').style.display=el('forwarded').checked?'block':'none'});
@@ -520,8 +524,10 @@ async function showMap(points){
   for(const property of properties)el('list').append(card(property,demo?{}:(data.property_reasons||{})));
   el('status').textContent=properties.length?'':L.error;
   // Never reveal exact owner coordinates without explicit show_exact_location.
-  mapAvailable=properties.filter(p=>typeof p.public_lat==='number'&&typeof p.public_lng==='number');
-  el('mapInfo').textContent=mapAvailable.length?L.someMap+' ('+mapAvailable.length+'/'+properties.length+')':L.noMap;
+  const enabled=demo||data.show_map===true;
+  mapAvailable=enabled?properties.filter(p=>typeof p.public_lat==='number'&&typeof p.public_lng==='number'):[];
+  el('mapInfo').textContent=!enabled?L.mapOff:
+    mapAvailable.length?L.someMap+' ('+mapAvailable.length+'/'+properties.length+')':L.noMap;
   if(mapAvailable.length){
    const toggle=el('mapToggle');toggle.hidden=false;toggle.textContent=L.mapBtn;
    toggle.addEventListener('click',()=>void showMap(mapAvailable));
