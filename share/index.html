@@ -19,7 +19,9 @@ body{margin:0;background:#10241b;color:#f7f7f2;font:15px/1.42 system-ui,-apple-s
 main{max-width:680px;margin:auto;padding:0 12px 115px}
 header{display:flex;align-items:center;justify-content:space-between;padding:18px 9px 20px}
 .logo{font:700 31px Georgia,serif;letter-spacing:1.3px}.logo small{display:block;font:10px system-ui;letter-spacing:2.6px;opacity:.72}
-.headerAction{font-size:12px;opacity:.72}
+.headerAction{font-size:12px;opacity:.87;display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+.headerAction select{width:auto;min-width:105px;padding:6px 8px;border-radius:9px;background:#f3f8ef;color:#183720;font-size:12px;min-height:38px}
+.originalLanguage{display:block;margin-top:5px;color:#7a6b4b;font-size:11px;font-weight:600}
 .hero{background:linear-gradient(130deg,#31583b,#133b2a);padding:26px 23px;border-radius:24px}
 .hero h1{margin:0 0 10px;font-size:25px;line-height:1.14}.hero p{margin:0;color:#e2f0de;white-space:pre-wrap;font-size:14px}
 .hero .eyebrow{color:#b9d4b6;font-size:11px;letter-spacing:1.5px;font-weight:700;margin-bottom:10px}
@@ -103,7 +105,14 @@ dialog::backdrop{background:#06150dd6}
 </head>
 <body>
 <main>
-<header><div class="logo">NIDO<small>REAL ESTATE · PRO</small></div><div class="headerAction" id="demoTag"></div></header>
+<header><div class="logo">NIDO<small>REAL ESTATE · PRO</small></div>
+ <div class="headerAction">
+  <span id="demoTag"></span>
+  <label for="languagePicker" id="languageLabel"></label>
+  <select id="languagePicker" aria-label="Page language">
+   <option value="es">Español</option><option value="en">English</option><option value="ru">Русский</option>
+  </select>
+ </div></header>
 <div class="hero">
  <div class="eyebrow">NIDO PRO · PERSONAL</div>
  <h1 id="heading"></h1><p id="intro"></p>
@@ -148,9 +157,18 @@ dialog::backdrop{background:#06150dd6}
 const API='https://mwqahwtdvmlwfgsychtg.supabase.co/functions/v1/nido-pro-guest';
 const FLEX='https://mwqahwtdvmlwfgsychtg.supabase.co/functions/v1/nido-pro-flexible';
 const q=new URLSearchParams(location.search), token=q.get('t')||'',demo=q.get('demo')==='1';
-const lang=['es','en','ru'].includes(q.get('lang'))?q.get('lang'):'es';
-const L={
+const supportedLanguage=value=>{
+ const root=String(value||'').toLowerCase().split(/[-_]/)[0];
+ return ['es','en','ru'].includes(root)?root:null;
+};
+let manualLanguage=null;
+try{manualLanguage=supportedLanguage(localStorage.getItem('nido-pro-guest-language'))}catch{}
+const deviceLanguage=[...(navigator.languages||[]),navigator.language]
+ .map(supportedLanguage).find(Boolean);
+let lang=supportedLanguage(q.get('ui_lang'))||manualLanguage||deviceLanguage||supportedLanguage(q.get('lang'))||'es';
+const translations={
 ru:{
+ languageLabel:'Язык',originalText:'Оригинальный текст объявления: перевод пока недоступен.',
  demo:'ДЕМО · без отправки',guest:'Гостевая подборка · без регистрации',loading:'Загружаем объявления…',
  demoTitle:'NIDO Pro · Подборка для знакомства',demoIntro:'Попробуй выбирать и комментировать объекты. Это демоверсия: ничего брокеру не отправляется.',
  listTitle:'Подобранная недвижимость',like:'Нравится',dislike:'Не подходит',picked:'В плане просмотров',
@@ -185,6 +203,7 @@ ru:{
  footer:'Регистрация не нужна. Приглашение можно переслать, поэтому личность посетителя по ссылке не подтверждается. До ответа агента ни одна встреча не считается согласованной.'
 },
 es:{
+ languageLabel:'Idioma',originalText:'Texto original del anuncio: traducción todavía no disponible.',
  demo:'DEMO · sin envío',guest:'Selección de invitado · sin registro',loading:'Cargando inmuebles…',
  demoTitle:'NIDO Pro · Selección de ejemplo',demoIntro:'Prueba a seleccionar y comentar. Es una demo: nada se envía al agente.',
  listTitle:'Propiedades seleccionadas',like:'Me gusta',dislike:'No encaja',picked:'En mi plan',
@@ -219,6 +238,7 @@ es:{
  footer:'Sin registro. Un enlace reenviado no verifica la identidad del visitante. Ninguna visita se confirma hasta que el agente lo acuerde.'
 },
 en:{
+ languageLabel:'Language',originalText:'Original listing text: translation is not available yet.',
  demo:'DEMO · no submission',guest:'Guest selection · no account needed',loading:'Loading properties…',
  demoTitle:'NIDO Pro · Sample selection',demoIntro:'Try choosing and commenting on listings. This is a demo: nothing goes to the broker.',
  listTitle:'Selected properties',like:'Like',dislike:'Not for me',picked:'In my plan',
@@ -252,27 +272,35 @@ en:{
  transferTitle:'Move this request into NIDO',transferInfo:'If you have a NIDO account and your broker approved the relationship, copy this code and paste it under My Agent → My viewings. This code grants access to your plan. Keep it private.',transferCopy:'Copy transfer code',transferCopied:'Code copied. Paste it in NIDO.',transferManual:'Select and copy the code shown below.',viewOther:'See alternative listing',alternative:'Your broker suggests instead',actualShowing:'Confirmed alternative',mapReady:'Preparing map',
  footer:'No sign-up required. A forwarded link does not verify who opened it. A visit is not confirmed until the agent arranges it.'
 }
-}[lang];
+};
+let L=translations[lang];
 const el=id=>document.getElementById(id);
 const make=(tag,value,css)=>{const node=document.createElement(tag);
  if(value!==undefined)node.textContent=String(value);
  if(css)node.className=css;return node;};
-document.documentElement.lang=lang;
+function paintLanguage(){
+ document.documentElement.lang=lang;
+ el('languageLabel').textContent=L.languageLabel;
+ el('languagePicker').value=lang;
+ el('listTitle').textContent=L.listTitle;el('demoTag').textContent=demo?L.demo:L.guest;
+ el('footer').textContent=L.footer;el('mapHeading').textContent=L.map;
+ el('planTitle').textContent=L.planTitle;el('planHint').textContent=L.planHint;
+ el('dayLabel').textContent=L.day;el('windowLabel').textContent=L.window;
+ el('planNoteLabel').textContent=L.planNote;el('planNote').placeholder=L.planNoteHint;
+ el('forwardedLabel').textContent=L.forwarded;el('guestNameLabel').textContent=L.name;
+ el('phoneLabel').textContent=L.whatsapp;el('cancel').textContent=L.cancel;el('sendPlan').textContent=L.send;
+ el('openPlan').textContent=L.planBtn;
+ for(const option of el('window').options)option.textContent=L[option.value];
+ el('basketCount').textContent=L.basket+' '+selected.size;
+}
 el('heading').textContent=L.loading;el('status').textContent=L.loading;
-el('listTitle').textContent=L.listTitle;el('demoTag').textContent=demo?L.demo:L.guest;
-el('footer').textContent=L.footer;el('mapHeading').textContent=L.map;
-el('planTitle').textContent=L.planTitle;el('planHint').textContent=L.planHint;
-el('dayLabel').textContent=L.day;el('windowLabel').textContent=L.window;
-el('planNoteLabel').textContent=L.planNote;el('planNote').placeholder=L.planNoteHint;
-el('forwardedLabel').textContent=L.forwarded;el('guestNameLabel').textContent=L.name;
-el('phoneLabel').textContent=L.whatsapp;el('cancel').textContent=L.cancel;el('sendPlan').textContent=L.send;
-el('openPlan').textContent=L.planBtn;
-for(const option of el('window').options)option.textContent=L[option.value];
 el('cancel').addEventListener('click',()=>el('planDialog').close());
 el('forwarded').addEventListener('change',()=>{el('optionalContact').style.display=el('forwarded').checked?'block':'none'});
 const selected=new Set(),reactions=new Map(),notes=new Map(),listed=new Map();
 const pendingStatus=new Map();
 let currentRequest=null, pendingRequest=null, mapLoaded=false, mapInstance=null, mapAvailable=[];
+let latestPayload=null,lastPlanSnapshot=null;
+paintLanguage();
 function banner(message,error=false){const b=el('banner');b.textContent=message;b.className=error?'error':'';b.style.display='block';}
 function addSelection(id,button){
  if(selected.has(id))selected.delete(id);else selected.add(id);
@@ -332,7 +360,7 @@ function gallery(property){
 }
 function card(property,reasons){
  const id=Number(property.id);listed.set(id,property);
- const article=make('article',undefined,'card');article.append(gallery(property));
+ const article=make('article',undefined,'card');article.dataset.propertyId=String(id);article.append(gallery(property));
  const body=make('div',undefined,'content');
  body.append(make('h2',property.title||'#'+id));
  body.append(make('div',[property.city,property.location].filter(Boolean).join(' · '),'location'));
@@ -348,12 +376,16 @@ function card(property,reasons){
  const desc=make('details',undefined,'description');
  desc.append(make('summary',L.description));
  desc.append(make('p',property.description||L.noDescription));
+ if(property.translation_available===false&&(property.description||property.title))
+   desc.append(make('small',L.originalText,'originalLanguage'));
  if(Array.isArray(property.amenities)&&property.amenities.length)desc.append(make('p',L.amenities+': '+property.amenities.join(' · ')));
  const href='https://kostaamigo.github.io/nido-apk-distribution/property/?id='+id+'&lang='+lang;
  const link=make('a',L.details+' ↗','detailsLink');link.href=href;link.target='_blank';link.rel='noopener noreferrer';
  desc.append(link);body.append(desc);
  const actions=make('div',undefined,'actions');
  const dislike=make('button','👎 '+L.dislike),like=make('button','👍 '+L.like);
+ like.classList.toggle('chosen',reactions.get(id)==='liked');
+ dislike.classList.toggle('negative',reactions.get(id)==='disliked');
  function mark(active,button){
   const previous=reactions.get(id);
   // In a demo do not silently claim server persistence.
@@ -368,11 +400,12 @@ function card(property,reasons){
  }
  like.addEventListener('click',()=>mark('liked',like));dislike.addEventListener('click',()=>mark('disliked',dislike));
  actions.append(dislike,like);body.append(actions);
- const pick=make('button','+ '+L.pick,'pick');
+ const pick=make('button',selected.has(id)?'✓ '+L.unpick:'+ '+L.pick,'pick');
+ pick.classList.toggle('chosen',selected.has(id));
  pick.addEventListener('click',()=>addSelection(id,pick));body.append(pick);
  const noteBox=make('details',undefined,'noteDetails'),summary=make('summary',L.yourNote);
  const text=make('textarea');text.maxLength=600;text.placeholder=L.noteHint;
- const saved=make('div',undefined,'savedNote');
+ const saved=make('div',notes.get(id)||'','savedNote');
  const save=make('button',L.saveNote);save.type='button';
  save.addEventListener('click',async()=>{
   const value=text.value.trim();
@@ -398,6 +431,7 @@ async function statusPlan(){
  showPlan(data.items||[],false,data.preferred_day,data.preferred_window);
 }
 function showPlan(items,isDemo,day,window){
+ lastPlanSnapshot={items,isDemo,day,window};
  const section=el('planStatus');section.replaceChildren();section.hidden=false;
  section.append(make('h2',L.statusTitle));
  section.append(make('p',day+' · '+(L[window]||L.flexible),'small'));
@@ -558,27 +592,58 @@ async function showMap(points){
  }catch{mount.hidden=true;el('mapInfo').textContent=L.mapFail}
  finally{el('mapToggle').disabled=false}
 }
+function renderPayload(data){
+ latestPayload=data;
+ el('heading').textContent=demo?L.demoTitle:(data.title||L.listTitle);
+ el('intro').textContent=demo?L.demoIntro:(data.intro||L.guest);
+ document.title='NIDO Pro · '+(demo?L.demoTitle:(data.title||L.listTitle));
+ const properties=Array.isArray(data.properties)?data.properties:[];
+ const validIds=new Set(properties.map(p=>Number(p.id)));
+ for(const id of selected)if(!validIds.has(id))selected.delete(id);
+ el('list').replaceChildren(...properties.map(property=>
+   card(property,demo?{}:(data.property_reasons||{}))));
+ el('basket').style.display=selected.size?'flex':'none';
+ el('basketCount').textContent=L.basket+' '+selected.size;
+ el('status').textContent=properties.length?'':L.error;
+ // Map can only display owner-authorized public coordinates from Edge.
+ const enabled=demo||data.show_map===true;
+ mapAvailable=enabled?properties.filter(p=>typeof p.public_lat==='number'&&
+   typeof p.public_lng==='number'):[];
+ el('mapInfo').textContent=!enabled?L.mapOff:
+  mapAvailable.length?L.someMap+' ('+mapAvailable.length+'/'+properties.length+')':L.noMap;
+ const toggle=el('mapToggle');
+ toggle.hidden=!mapAvailable.length;toggle.textContent=L.mapBtn;
+ if(lastPlanSnapshot)showPlan(lastPlanSnapshot.items,lastPlanSnapshot.isDemo,
+   lastPlanSnapshot.day,lastPlanSnapshot.window);
+}
+async function loadLocalizedData(nextLanguage){
+ const response=await fetch(API+'?api=data&lang='+encodeURIComponent(nextLanguage)+'&'+
+  (demo?'demo=1':'t='+encodeURIComponent(token)),{cache:'no-store'});
+ if(!response.ok)throw Error('DATA_UNAVAILABLE');
+ return response.json();
+}
+el('mapToggle').addEventListener('click',()=>void showMap(mapAvailable));
+el('languagePicker').addEventListener('change',async()=>{
+ const next=supportedLanguage(el('languagePicker').value);
+ if(!next||next===lang)return;
+ const picker=el('languagePicker');picker.disabled=true;
+ try{
+  const data=await loadLocalizedData(next);
+  lang=next;L=translations[next];
+  try{localStorage.setItem('nido-pro-guest-language',next)}catch{}
+  const url=new URL(location.href);url.searchParams.set('ui_lang',next);
+  history.replaceState(null,'',url.pathname+'?'+url.searchParams.toString());
+  paintLanguage();renderPayload(data);
+  if(mapInstance){mapInstance.remove();mapInstance=null;mapLoaded=false;
+    el('mapCanvas').replaceChildren();el('mapCanvas').hidden=true;}
+ }catch{picker.value=lang;banner(L.error,true)}
+ finally{picker.disabled=false}
+});
 (async()=>{
  try{
-  const response=await fetch(API+'?api=data&'+(demo?'demo=1':'t='+encodeURIComponent(token)),{cache:'no-store'});
-  if(!response.ok)throw Error('DATA_UNAVAILABLE');
-  const data=await response.json();
-  el('heading').textContent=demo?L.demoTitle:(data.title||L.listTitle);
-  el('intro').textContent=demo?L.demoIntro:(data.intro||L.guest);
-  document.title='NIDO Pro · '+(demo?L.demoTitle:(data.title||L.listTitle));
-  const properties=Array.isArray(data.properties)?data.properties:[];
-  for(const property of properties)el('list').append(card(property,demo?{}:(data.property_reasons||{})));
-  el('status').textContent=properties.length?'':L.error;
-  // Never reveal exact owner coordinates without explicit show_exact_location.
-  const enabled=demo||data.show_map===true;
-  mapAvailable=enabled?properties.filter(p=>typeof p.public_lat==='number'&&typeof p.public_lng==='number'):[];
-  el('mapInfo').textContent=!enabled?L.mapOff:
-    mapAvailable.length?L.someMap+' ('+mapAvailable.length+'/'+properties.length+')':L.noMap;
-  if(mapAvailable.length){
-   const toggle=el('mapToggle');toggle.hidden=false;toggle.textContent=L.mapBtn;
-   toggle.addEventListener('click',()=>void showMap(mapAvailable));
-  }
-  if(!demo&&token&&sessionStorage){
+  const data=await loadLocalizedData(lang);
+  renderPayload(data);
+  if(!demo&&token){
    try{
     const saved=JSON.parse(sessionStorage.getItem('nido:guestplan:'+token)||'null');
     if(saved&&/^[a-f0-9]{64}$/.test(saved.receipt)&&/^[0-9a-f-]{36}$/i.test(saved.request_key)){
@@ -590,6 +655,6 @@ async function showMap(points){
   el('heading').textContent=L.error;el('status').textContent=L.error;
   el('mapInfo').textContent=L.noMap;
  }
-})();
+})()
 </script>
 </body></html>
