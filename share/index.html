@@ -77,6 +77,12 @@ textarea{resize:vertical;min-height:82px}
 .planStatus .item strong{display:block;font-size:13px}
 .planStatus .pill{display:inline-flex;background:#e2eddf;padding:5px 10px;border-radius:20px;color:#376044;margin:6px 0;font-weight:700;font-size:12px}
 .planStatus .item button{font-size:12px;min-height:40px;margin:4px 6px 0 0}
+.alternative{border:1px solid #d4dfcf;background:#fff;border-radius:12px;overflow:hidden;margin:10px 0 12px}
+.alternative img{width:100%;height:150px;object-fit:cover;display:block}
+.alternativeBody{padding:12px;display:flex;flex-direction:column;gap:6px}
+.alternativeTitle{font-size:15px;font-weight:800;color:#21442b}
+.alternativePrice{font-size:18px;font-weight:800;color:#1d4629}
+.alternativeHint{font-size:12px;font-weight:700;color:#53714b}
 dialog{border:0;border-radius:22px;padding:0;width:min(95vw,480px);max-height:90dvh;overflow-y:auto;box-shadow:0 12px 40px #0009}
 dialog::backdrop{background:#06150dd6}
 .modal{color:#1c3926;padding:24px}
@@ -172,7 +178,7 @@ ru:{
  statusCancelled:'Отменено',statusCompleted:'Просмотр состоялся',statusDraft:'Не подтверждено',
  acceptTime:'Подходит новое время',acceptReplacement:'Подходит замена',decline:'Попросить другой вариант',
  accepted:'Ответ отправлен. Это ещё не подтверждённая встреча.',proposalPending:'Твой ответ ожидает окончательного согласования.',
- viewOther:'Посмотреть альтернативный объект',mapReady:'Готовимся показать',
+ viewOther:'Посмотреть альтернативный объект',alternative:'Брокер предлагает вместо него',actualShowing:'Подтверждённый вариант',mapReady:'Готовимся показать',
  footer:'Регистрация не нужна. Приглашение можно переслать, поэтому личность посетителя по ссылке не подтверждается. До ответа агента ни одна встреча не считается согласованной.'
 },
 es:{
@@ -206,7 +212,7 @@ es:{
  statusCancelled:'Cancelado',statusCompleted:'Visita realizada',statusDraft:'Sin confirmar',
  acceptTime:'Me sirve el nuevo horario',acceptReplacement:'Me sirve el reemplazo',decline:'Pedir otra opción',
  accepted:'Respuesta enviada. La cita todavía necesita confirmación.',proposalPending:'Tu respuesta espera confirmación.',
- viewOther:'Ver propiedad alternativa',mapReady:'Preparando el mapa',
+ viewOther:'Ver propiedad alternativa',alternative:'Tu agente propone en su lugar',actualShowing:'Inmueble confirmado',mapReady:'Preparando el mapa',
  footer:'Sin registro. Un enlace reenviado no verifica la identidad del visitante. Ninguna visita se confirma hasta que el agente lo acuerde.'
 },
 en:{
@@ -240,7 +246,7 @@ en:{
  statusCancelled:'Cancelled',statusCompleted:'Viewing completed',statusDraft:'Not confirmed',
  acceptTime:'New time works',acceptReplacement:'Replacement works',decline:'Request another option',
  accepted:'Reply sent. The appointment still needs broker confirmation.',proposalPending:'Your reply awaits final coordination.',
- viewOther:'See alternative listing',mapReady:'Preparing map',
+ viewOther:'See alternative listing',alternative:'Your broker suggests instead',actualShowing:'Confirmed alternative',mapReady:'Preparing map',
  footer:'No sign-up required. A forwarded link does not verify who opened it. A visit is not confirmed until the agent arranges it.'
 }
 }[lang];
@@ -408,6 +414,28 @@ function showPlan(items,isDemo,day,window){
   const currentResponse=item.responded_proposal_number===item.proposal_number;
   if(currentResponse&&item.client_response&&item.client_response!=='none')
    card.append(make('p',L.proposalPending,'small'));
+  if(item.replacement&&item.replacement_property_id){
+   const alt=item.replacement;
+   const preview=make('div',undefined,'alternative');
+   if(typeof alt.photo==='string'){
+     try{
+       const url=new URL(alt.photo);
+       if(url.protocol==='https:'){
+         const pic=make('img');pic.alt=alt.title||L.viewOther;pic.loading='lazy';
+         pic.src=url.href;pic.onerror=()=>pic.remove();preview.append(pic);
+       }
+     }catch{}
+   }
+   const info=make('div',undefined,'alternativeBody');
+   info.append(make('div',item.status==='confirmed'?L.actualShowing:L.alternative,'alternativeHint'));
+   info.append(make('div',alt.title||'#'+alt.id,'alternativeTitle'));
+   if(alt.location||alt.city)info.append(make('div',[alt.location,alt.city].filter(Boolean).join(' · '),'small'));
+   if(typeof alt.price==='number')info.append(make('div','$'+alt.price.toLocaleString('en-US'),'alternativePrice'));
+   const detail=make('a',L.viewOther+' ↗','detailsLink');
+   detail.href='https://kostaamigo.github.io/nido-apk-distribution/property/?id='+alt.id+'&lang='+lang;
+   detail.rel='noopener noreferrer';detail.target='_blank';info.append(detail);
+   preview.append(info);card.append(preview);
+  }
   const proposed=item.status==='same_day_change_proposed'||item.status==='replacement_proposed';
   if(proposed&&!currentResponse&&!isDemo){
    for(const [text,response] of [
@@ -422,11 +450,6 @@ function showPlan(items,isDemo,day,window){
      catch{banner(L.error,true)}finally{btn.disabled=false}
     });card.append(btn)
    }
-  }
-  if(item.replacement_property_id){
-   const link=make('a',L.viewOther+' ↗','detailsLink');
-   link.href='https://kostaamigo.github.io/nido-apk-distribution/property/?id='+item.replacement_property_id+'&lang='+lang;
-   link.rel='noopener noreferrer';link.target='_blank';card.append(link);
   }
   section.append(card);
  }
